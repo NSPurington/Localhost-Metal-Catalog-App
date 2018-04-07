@@ -77,9 +77,6 @@ class Alloy(Base):
         return {
             'name': self.name,
             'description': self.description,
-            'id': self.id,
-            'alloy_id': self.alloy_id,
-            'alloy': self.alloy,
         }
 
 

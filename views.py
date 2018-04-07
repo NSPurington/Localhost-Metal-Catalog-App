@@ -153,6 +153,19 @@ def gdisconnect():
         return response
 
 
+# JSON APIs to view serializad Basemetal and Alloy Information
+@app.route('/basemetals/JSON')
+def basemetalsJSON():
+    basemetals = session.query(BaseMetal).all()
+    return jsonify(basemetals=[i.serialize for i in basemetals])  
+
+@app.route('/basemetal/<int:basemetal_id>/JSON')
+def alloyJSON(basemetal_id):
+    basemetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
+    alloy = session.query(Alloy).filter_by(basemetal_id=basemetal_id).all()
+    return jsonify(Alloy_Item=[i.serialize for i in alloy])          
+
+
 # Show all base metals
 @app.route('/')
 @app.route('/basemetals/')
