@@ -4,9 +4,9 @@
 
 **Prerequisites**
 
-Linux OS, or Virtual Maching with Python 2.7.14 installed
-Internet capabilities to run the html code locally
-A Google Plus account
+1. Linux OS, or Virtual Maching with Python 2.7.14 installed
+2. Internet capabilities to run the html code locally
+3. A Google Plus account
 
 **Installing**
 
@@ -18,14 +18,14 @@ A Google Plus account
 6. Open web browser, and type "localhost:5000" in the address line
 
 **Built With**
-Python - Backend code 
-Flask - Microframework
-Sqlite - Database
-HTML & CSS - Frontend code
+1. Python - Backend code 
+2. Flask - Microframework
+3. Sqlite - Database
+4. HTML & CSS - Frontend code
 
 **Authors**
 Nick Purington - Udacity student/Aspiring Web Developer
 
 **Acknowledgments**
-Udacity - For code snippets
-Google - For Oauth code
+1. Udacity - For code snippets
+2. Google - For Oauth code
