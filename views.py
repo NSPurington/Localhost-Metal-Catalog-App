@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, jsonify, url_for, flash
+from flask import Flask, render_template, request
+from flask import redirect, jsonify, url_for, flash
 from sqlalchemy import create_engine, asc
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, BaseMetal, Alloy, User
@@ -13,7 +14,7 @@ from flask import make_response
 import requests
 
 app = Flask(__name__)
-966955
+
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
 APPLICATION_NAME = "Alloy Catalog App"
@@ -89,8 +90,8 @@ def gconnect():
     stored_access_token = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_access_token is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),
-                                 200)
+        response = make_response(json.dumps(
+            'Current user is already connected.'), 200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
@@ -109,31 +110,63 @@ def gconnect():
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
 
+    # see if user exists, if it doesn't make a new one
+    user_id = getUserID(data['email'])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
+
     output = ''
     output += '<h1>Welcome, '
     output += login_session['username']
     output += '!</h1>'
     output += '<img src="'
     output += login_session['picture']
-    output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
+    output += ' " style = "width: 300px; height: 300px;border-radius: \
+    150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
     flash("you are now logged in as %s" % login_session['username'])
     print "done!"
     return output
 
-    
+
+# User Helper Functions
+def createUser(login_session):
+    newUser = User(username=login_session['username'], email=login_session[
+                   'email'], picture=login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    user = session.query(User).filter_by(email=login_session['email']).one()
+    return user.id
+
+
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
+
+
 # DISCONNECT - Revoke a current user's token and reset their login_session
 @app.route('/gdisconnect')
 def gdisconnect():
     access_token = login_session.get('access_token')
     if access_token is None:
         print 'Access Token is None'
-        response = make_response(json.dumps('Current user not connected.'), 401)
+        response = make_response(json.dumps(
+            'Current user not connected.'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
     print 'In gdisconnect access token is %s', access_token
     print 'User name is: '
     print login_session['username']
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' \
+        % login_session['access_token']
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
     print 'result is '
@@ -148,7 +181,8 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     else:
-        response = make_response(json.dumps('Failed to revoke token for given user.', 400))
+        response = make_response(json.dumps(
+            'Failed to revoke token for given user.', 400))
         response.headers['Content-Type'] = 'application/json'
         return response
 
@@ -157,13 +191,14 @@ def gdisconnect():
 @app.route('/basemetals/JSON')
 def basemetalsJSON():
     basemetals = session.query(BaseMetal).all()
-    return jsonify(basemetals=[i.serialize for i in basemetals])  
+    return jsonify(basemetals=[i.serialize for i in basemetals])
+
 
 @app.route('/basemetal/<int:basemetal_id>/JSON')
 def alloyJSON(basemetal_id):
     basemetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
     alloy = session.query(Alloy).filter_by(basemetal_id=basemetal_id).all()
-    return jsonify(Alloy_Item=[i.serialize for i in alloy])          
+    return jsonify(Alloy_Item=[i.serialize for i in alloy])
 
 
 # Show all base metals
@@ -183,39 +218,48 @@ def newBaseMetal():
     if 'username' not in login_session:
         return redirect('/login')
     if request.method == 'POST':
-        newBaseMetal = BaseMetal(name=request.form['name'])
+        newBaseMetal = BaseMetal(name=request.form['name'],
+            user_id=login_session['user_id'])
         session.add(newBaseMetal)
         flash('New Base Metal %s Successfully Created' % newBaseMetal.name)
         session.commit()
         return redirect(url_for('showBaseMetals'))
     else:
-        return render_template('newBaseMetal.html')    
+        return render_template('newBaseMetal.html')
 
 
 # Edit a base metal
 @app.route('/basemetal/<int:basemetal_id>/edit', methods=['GET', 'POST'])
 def editBaseMetal(basemetal_id):
-    editedBaseMetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()  
+    editedBaseMetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
+    if editedBaseMetal.user_id != login_session['user_id']:
+        flash('Not allowed - Please create your own basemetal to edit')
+        return redirect(url_for('showBaseMetals'))
     if request.method == 'POST':
         if request.form['name']:
             editedBaseMetal.name = request.form['name']
             flash('Base Metal Successfully Edited %s' % editedBaseMetal.name)
             return redirect(url_for('showBaseMetals'))
     else:
-        return render_template('editBaseMetal.html', basemetal=editedBaseMetal)    
+        return render_template('editBaseMetal.html', basemetal=editedBaseMetal)
 
 
 # Delete a base metal
 @app.route('/basemetal/<int:basemetal_id>/delete', methods=['GET', 'POST'])
 def deleteBaseMetal(basemetal_id):
-    baseMetalToDelete = session.query(BaseMetal).filter_by(id=basemetal_id).one()
+    baseMetalToDelete = session.query(BaseMetal).filter_by(
+        id=basemetal_id).one()
+    if baseMetalToDelete.user_id != login_session['user_id']:
+        flash('Not allowed - Please create your own basemetal to delete')
+        return redirect(url_for('showBaseMetals'))
     if request.method == 'POST':
         session.delete(baseMetalToDelete)
         flash('%s Successfully Deleted' % baseMetalToDelete.name)
         session.commit()
         return redirect(url_for('showBaseMetals'))
     else:
-        return render_template('deleteBaseMetal.html', basemetal=baseMetalToDelete)    
+        return render_template(
+            'deleteBaseMetal.html', basemetal=baseMetalToDelete)
 
 
 # Show an alloy
@@ -225,7 +269,8 @@ def showAlloy(basemetal_id):
     basemetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
     alloy = session.query(Alloy).filter_by(basemetal_id=basemetal_id).all()
     if 'username' not in login_session:
-        return render_template('publicAlloys.html', basemetal=basemetal, alloy=alloy)
+        return render_template(
+            'publicAlloys.html', basemetal=basemetal, alloy=alloy)
     else:
         return render_template('alloys.html', basemetal=basemetal, alloy=alloy)
 
@@ -235,20 +280,26 @@ def showAlloy(basemetal_id):
 def newAlloy(basemetal_id):
     basemetal = session.query(BaseMetal).filter_by(id=basemetal.id).one()
     if request.method == 'POST':
-        newItem = Alloy(name=request.form['name'], description=request.form['descrption'], basemetal_id=basemetal_id, user_id=user_id)
+        newItem = Alloy(name=request.form['name'],
+                        description=request.form['descrption'],
+                        basemetal_id=basemetal_id, user_id=basemetal.user_id)
         session.add(newItem)
         session.commit()
         flash('New Alloy %s Successfully Created' % (newItem.name))
         return redirect(url_for('showAlloy', basemetal_id=basemetal_id))
     else:
-        return render_template('newAlloy.html', basemetal_id=basemetal_id)    
+        return render_template('newAlloy.html', basemetal_id=basemetal_id)
 
 
 # Edit an alloy
-@app.route('/basemetal/<int:basemetal_id>/alloy/<int:alloy_id>/edit', methods=['GET', 'POST'])
+@app.route('/basemetal/<int:basemetal_id>/alloy/<int:alloy_id>/edit',
+           methods=['GET', 'POST'])
 def editAlloy(basemetal_id, alloy_id):
     editedItem = session.query(Alloy).filter_by(id=alloy_id).one()
     basemetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
+    if editedItem.user_id != login_session['user_id']:
+        flash('Not allowed - Please create your own alloy to edit')
+        return redirect(url_for('showBaseMetals'))
     if request.method == 'POST':
         if request.form['name']:
             editedItem.name = request.form['name']
@@ -259,21 +310,28 @@ def editAlloy(basemetal_id, alloy_id):
         flash('Alloy Successfully Edited')
         return redirect(url_for('showAlloy', basemetal_id=basemetal_id))
     else:
-        return render_template('editAlloy.html', basemetal = basemetal, basemetal_id=basemetal_id, alloy_id=alloy_id, alloy=editedItem)    
+        return render_template('editAlloy.html', basemetal=basemetal,
+                               basemetal_id=basemetal_id, alloy_id=alloy_id,
+                               alloy=editedItem)
 
 
 # Delete an alloy
-@app.route('/basemetal/<int:basemetal_id>/alloy/<int:alloy_id>/delete', methods=['GET', 'POST'])
+@app.route('/basemetal/<int:basemetal_id>/alloy/<int:alloy_id>/delete',
+           methods=['GET', 'POST'])
 def deleteAlloy(basemetal_id, alloy_id):
     basemetal = session.query(BaseMetal).filter_by(id=basemetal_id).one()
     itemToDelete = session.query(Alloy).filter_by(id=alloy_id).one()
+    if itemToDelete.user_id != login_session['user_id']:
+        flash('Not allowed - Please create your own alloy to delete')
+        return redirect(url_for('showBaseMetals'))
     if request.method == 'POST':
         session.delete(itemToDelete)
         session.commit()
         flash('Alloy Successfully Deleted')
         return redirect(url_for('showAlloy', basemetal_id=basemetal_id))
     else:
-        return render_template('deleteAlloy.html', basemetal = basemetal, basemetal_id = basemetal_id, alloy=itemToDelete) 
+        return render_template('deleteAlloy.html', basemetal=basemetal,
+                               basemetal_id=basemetal_id, alloy=itemToDelete)
 
 
 # Disconnect based on provider
@@ -282,7 +340,7 @@ def disconnect():
     gdisconnect()
     flash("You have successfully been logged out.")
     basemetals = session.query(BaseMetal).order_by(asc(BaseMetal.name))
-    return render_template('publicBaseMetals.html', basemetals = basemetals)
+    return render_template('publicBaseMetals.html', basemetals=basemetals)
 
 
 if __name__ == '__main__':
