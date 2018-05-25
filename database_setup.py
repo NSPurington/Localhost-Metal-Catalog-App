@@ -80,7 +80,7 @@ class Alloy(Base):
         }
 
 
-engine = create_engine('sqlite:///metalcatalog.db')
+engine = create_engine('psql:///metalcatalog.db')
 
 
 Base.metadata.create_all(engine)
