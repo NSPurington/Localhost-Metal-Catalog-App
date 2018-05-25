@@ -21,7 +21,7 @@ APPLICATION_NAME = "Alloy Catalog App"
 
 
 # Connect to Database and create database session
-engine = create_engine('psql:///metalcatalog.db')
+engine = create_engine('postgresql:///metalcatalog.db')
 Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
